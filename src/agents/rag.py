@@ -15,21 +15,38 @@ llm = llm.bind_tools([file_search_tool])
 
 class State(MessagesState):
     customer_name: str
-    my_age: int
+    phone: str
+    my_age: str
+
+from pydantic import BaseModel, Field
+
+class ContactInfo(BaseModel):
+    name: str = Field(description="The name of the person")
+    phone: str = Field(description="The phone number of the person")
+    email: str = Field(description="The email of the person")    
+    age: str = Field(description="The age of the person")
+
+llm_with_structured_output = init_chat_model(model="gpt-4o-mini", temperature=0)
+llm_with_structured_output = llm.with_structured_output(ContactInfo)
 
 def extractor(state: State):
-    return {}
+    history = state["messages"]
+    customer_name = state.get("customer_name", None)
+    new_state: State = {}
+    if customer_name is None or len(history) > 10:
+        schema = llm_with_structured_output.invoke(history)
+        new_state["customer_name"] = schema.name
+        new_state["phone"] = schema.phone    
+        new_state["my_age"] = schema.age
+    return new_state
 
 def conversation(state: State):
     new_state: State = {}
-    if state.get("customer_name", None) is None:
-        new_state["customer_name"] = "John"
-    else:
-        new_state["my_age"] = random.randint(20, 30)
-
     history = state["messages"]
     last_message = history[-1]
-    ai_message = llm.invoke(last_message.text)
+    customer_name = state.get("customer_name", 'Nicolas P')
+    system_message = f"You are a helpful assistant that can answer questions about the customer {customer_name}"
+    ai_message = llm.invoke([("system", system_message), ("user", last_message.text)])
     new_state["messages"] = [ai_message]
     print(new_state)
     return new_state
