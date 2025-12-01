@@ -1,5 +1,3 @@
-# pip install -qU "langchain[anthropic]" to call the model
-
 from langchain.agents import create_agent
 
 def get_weather(city: str) -> str:
